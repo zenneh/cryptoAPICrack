@@ -1,6 +1,7 @@
-import time
+import time as pytime
 import os
 import random
+from datetime import datetime
 
 from tqdm import tqdm
 from bypass_cryptoAPI import *
@@ -56,6 +57,29 @@ def validateKeys(api:CryptoAPI, keys:list, required:int=50) -> list:
     
     return valid
 
+def getKeys(api, minkey:int) -> list:
+    # get all the validated keys
+    print("[+] Checking for valid keys")
+    validated = readKeys("valid-keys.txt")
+    if(len(validated) >= minkey):
+        return validated
+    
+    print("[+] Checking for non-valid keys")
+    nonvalid = readKeys("keys.txt")
+    if((len(validated) + len(nonvalid)) >= minkey):
+        print("[+] Validating non-valid keys")
+        try:
+            nonvalid = validateKeys(api, nonvalid, minkey)
+        except Exception as e:
+            print("[-] Could not validate enough keys, wait till keys are registered")
+            exit()
+
+        return validated + nonvalid
+    
+    raise Exception()
+    
+
+
 def getRandomKey(keys:list) -> str:
     if len(keys) == 0:
         raise Exception()
@@ -63,38 +87,66 @@ def getRandomKey(keys:list) -> str:
     index = random.randint(0, len(keys) - 1)
     return keys[index]
 
+def getTimeFromData(csv:str) -> str:
+    return csv.split(",")[0]
+
 def getTime()->str:
-    if not os.path.exists('./data.json'):
+    if not os.path.exists('./data.csv'):
         return '2016-01-01T00:00:00'
 
-    with open("./data.json", "r") as file:
+    with open("./data.csv", "r") as file:
         data = file.readlines()
         if len(data) > 0:
-            data = json.loads(data)
-            return data[-1]["time_period_end"]
+            time = getTimeFromData(data[-1])
+            return time
+
+    return '2016-01-01T00:00:00'
+
 def convertToCsv(object:list) -> list:
     l = []
     for item in object:
         d = ""
-        for k,v in item.values():
-            d += v
+        for value in item.values():
+            d += str(value) + ","
         l.append(d)
+    return l
+
+def writeList(file, csv:list):
+    for i in csv:
+        file.write(i + "\n")
+
+def calculateTimeSpan(p1, p2):
+    pass
+
+def getlocaltime():
+    t = datetime.now()
+    return t.strftime("%H:%M:%S")
+
+def Update(start:float, interval:int) -> float:
+    if (start - pytime.perf_counter() < interval):
+        return start
+    
+    print(f"[i] {getlocaltime()} update message")
+
+    return pytime.perf_counter()
+
+
+
+# Options
+MIN_KEYS = 50 # the minimum amount of keys needed to start the bot
+BUFFER = 1 * 60 * 24 * 356 # one year buffer
+PERIOD = 500 
 
 def main() -> None:
     # Create objects
     api = CryptoAPI()
 
-    # Step 1: read and validate all keys
-    keys = readKeys("./valid-keys.txt")
-    # try:
-    #     # set keys to only valid keys
-    #     keys = validateKeys(api, keys)
+    # Step 1: Get the keys
+    try:
+        keys = getKeys(api, MIN_KEYS)
+    except Exception as e:
+        print("[-] Not enough keys to start bot, pls run keygen.py to generate the keys")
     
-    # except Exception as e:
-    #     print(e)
-    #     print("[+] Could not validate enough keys")
-    #     return
-
     print(f"[+] {len(keys)} keys validated")
 
     # Step 2: Check current data file
@@ -102,10 +154,12 @@ def main() -> None:
     print("[+] Starting from ", time)
     
     # Step 3: Download and append new data
-    file = open("./data.json", "a")
+    file = open("./data.csv", "a")
+    update = pytime.perf_counter()
     active = True
 
-    for i in tqdm(range(9999), desc="[+] Downloading data"):
+    for i in tqdm(range(PERIOD), desc="[+] Downloading data"):
+        update = Update(update, 2)
         k = getRandomKey(keys)
         try:
             # get data
@@ -113,10 +167,11 @@ def main() -> None:
             data = convertToCsv(data)
             
             # write data to file
-            file.write(data)
+            writeList(file, data)
 
             # update time
-            time = data[-1]["time_period_end"]
+            time = getTimeFromData(data[-1])
+
         except CryptoAPIRequestError as e:
             # try new key
             print(f"[i] Key {k} broke")
@@ -125,8 +180,14 @@ def main() -> None:
 
         except Exception as e:
             file.close()
+            print(e)
             print("[-] Error while downloading data")
             return
+        
+        except KeyboardInterrupt as e:
+            print("[+] Quitting bot")
+            
+
 
 if __name__ == "__main__":
     main()
