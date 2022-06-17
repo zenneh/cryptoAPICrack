@@ -1,3 +1,4 @@
+from ctypes import addressof
 import time as pytime
 import os
 import random
@@ -122,22 +123,80 @@ def getlocaltime():
     t = datetime.now()
     return t.strftime("%H:%M:%S")
 
-def Update(start:float, interval:int) -> float:
-    if (start - pytime.perf_counter() < interval):
+def Update(start:float, interval:int, message:str) -> float:
+    if (pytime.perf_counter() - start < interval):
         return start
     
-    print(f"[i] {getlocaltime()} update message")
+    print(f"[i] {getlocaltime()} {message}")
 
     return pytime.perf_counter()
 
+def CheckData(object:list) -> bool:
+    # list is empty, already on latest data
+    print(object)
+    if len(object) == 0:
+        return False
+    return True
+
+def DateToInt(date:str)-> datetime:
+    d,t = date.split("T")
+    year, month, day = d.split("-")
+    hour, min, sec = t.split(":")
+    return datetime(int(year), int(month), int(day), int(hour), int(min))
+    
+
+def VerifyData(filename:str) -> bool:
+    print()
+    # open file
+    prev = 0
+    with open(filename, "r") as file:
+        lines = file.readlines()
+        for index in tqdm(range(len(lines)), desc="[+] Verifying data!!!"):
+            line = lines[index]
+            
+            # get date
+            d = line.split(",")[0]
+            d = DateToInt(d)
+            # skip first one
+            if prev == 0:
+                prev = d
+                continue
+
+            if d <= prev:
+                return False
+            
+    
+    return True
+
+
+def add_record(line:str, record:list, buffersize:int) -> list:
+    # remove first one
+    if(len(record) >= buffersize):
+        record.pop(0)
+    
+    record.append(line)
+    return record
+
+def check_record(line:str, record:list) -> bool:
+    if line in record:
+        return False
+
+    return True 
 
 
 # Options
 MIN_KEYS = 50 # the minimum amount of keys needed to start the bot
 BUFFER = 1 * 60 * 24 * 356 # one year buffer
-PERIOD = 500 
+PERIOD = 5000 
+RECORD_SIZE = 50
 
 def main() -> None:
+
+    # verify old data
+    if not VerifyData("./data.csv"):
+        print("[-] ERROR: Data is not fully structured")
+        exit()
+
     # Create objects
     api = CryptoAPI()
 
@@ -158,19 +217,40 @@ def main() -> None:
     update = pytime.perf_counter()
     active = True
 
-    for i in tqdm(range(PERIOD), desc="[+] Downloading data"):
-        update = Update(update, 2)
+    record_buffer = []
+
+    for i in tqdm(range(PERIOD), desc=f"[+] Downloading data"):
+        update = Update(update, 10, f"Time: {time}")
         k = getRandomKey(keys)
         try:
             # get data
             data = api.GetData(k, time)
+
+            # check data
+            if not CheckData(data):
+                print("[+] Downloaded all the data...quitting")
+                exit()
+
+            # get json data in csv format
             data = convertToCsv(data)
+            
+            # Check if data no already in file -> avoid duplicates
+            if not check_record(data, record_buffer):
+                continue
+
+            # add line to buffer
+            record_buffer = add_record(data, record_buffer, RECORD_SIZE)
             
             # write data to file
             writeList(file, data)
 
             # update time
-            time = getTimeFromData(data[-1])
+            n = getTimeFromData(data[-1])
+            if n == time:
+                print("[+] Data up to date")
+                exit()
+            
+            time = n
 
         except CryptoAPIRequestError as e:
             # try new key
@@ -186,6 +266,7 @@ def main() -> None:
         
         except KeyboardInterrupt as e:
             print("[+] Quitting bot")
+            exit()
             
 
 

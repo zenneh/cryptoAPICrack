@@ -52,7 +52,7 @@ class CryptoAPI:
     
     # return json list of prices
     def GetData(self, key, time) -> list:
-        url = 'https://rest.coinapi.io/v1/ohlcv/BITSTAMP_SPOT_BTC_USD/history?period_id=1HRS&time_start=' + time
+        url = 'https://rest.coinapi.io/v1/ohlcv/BITSTAMP_SPOT_BTC_USD/history?period_id=5MIN&time_start=' + time
         header = {"X-CoinAPI-Key": key}
 
         r = requests.get(url, headers=header)

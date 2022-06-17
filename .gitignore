@@ -1,5 +1,5 @@
 *.txt
 *.csv
 *.json
-
+*.csv.bak
 __pycache__/*
