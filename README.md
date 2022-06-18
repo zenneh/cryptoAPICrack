@@ -37,5 +37,5 @@ Todo:
 
 **Better estimate**
 Todo:
-- [ ] Find difference between start time and current time
-- [ ] Based on request size and timespan calculate te number of iterations + buffer
+- [+] Find difference between start time and current time
+- [+] Based on request size and timespan calculate te number of iterations + buffer
