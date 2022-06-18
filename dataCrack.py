@@ -1,4 +1,5 @@
 from ctypes import addressof
+from fnmatch import fnmatch
 import time as pytime
 import os
 import random
@@ -7,27 +8,6 @@ from datetime import datetime
 from tqdm import tqdm
 from bypass_cryptoAPI import *
 from bypass_tempmailAPI import *
-
-# for i in tqdm.tqdm(range(800 * 12), desc="[+] Downloading"):
-#     key = getrandomkey()
-#     headers = {'X-CoinAPI-Key' : key}
-#     url = 'https://rest.coinapi.io/v1/ohlcv/BITSTAMP_SPOT_BTC_USD/history?period_id=1HRS&time_start=' + time
-#     response = requests.get(url, headers=headers)
-#     if "error" in response.text:
-#         print(response.text)
-#         print("[-] Key is destroyed", key)
-#         keys.remove(key)
-#         print("[+] Trying next key")
-#         continue
-
-#     with open("data.json", "a") as file:
-#         file.write(response.text)
-            
-    
-#     a = json.loads(response.text)    
-#     time = a[-1]["time_period_end"]
-#     print(time.split("-")[0])
-#     records += len(a)
 
 def readKeys(filename:str) -> list:
     keys = []
@@ -91,11 +71,11 @@ def getRandomKey(keys:list) -> str:
 def getTimeFromData(csv:str) -> str:
     return csv.split(",")[0]
 
-def getTime()->str:
-    if not os.path.exists('./data.csv'):
+def getTime(file)->str:
+    if not os.path.exists(file):
         return '2016-01-01T00:00:00'
 
-    with open("./data.csv", "r") as file:
+    with open(file, "r") as file:
         data = file.readlines()
         if len(data) > 0:
             time = getTimeFromData(data[-1])
@@ -133,7 +113,6 @@ def Update(start:float, interval:int, message:str) -> float:
 
 def CheckData(object:list) -> bool:
     # list is empty, already on latest data
-    print(object)
     if len(object) == 0:
         return False
     return True
@@ -146,7 +125,6 @@ def DateToInt(date:str)-> datetime:
     
 
 def VerifyData(filename:str) -> bool:
-    print()
     # open file
     prev = 0
     with open(filename, "r") as file:
@@ -183,19 +161,26 @@ def check_record(line:str, record:list) -> bool:
 
     return True 
 
+def checkfilename(name):
+    return name in os.listdir()
+
 
 # Options
 MIN_KEYS = 50 # the minimum amount of keys needed to start the bot
 BUFFER = 1 * 60 * 24 * 356 # one year buffer
 PERIOD = 5000 
 RECORD_SIZE = 50
+SYMBOL_ID = "BINANCE_SPOT_ETH_USDT"
+PERIOD_ID = "5MIN"
 
 def main() -> None:
 
-    # verify old data
-    if not VerifyData("./data.csv"):
-        print("[-] ERROR: Data is not fully structured")
-        exit()
+    fname = f"{SYMBOL_ID}.csv"
+    if checkfilename(fname):
+        # verify old data
+        if not VerifyData(fname):
+            print("[-] ERROR: Data is not fully structured")
+            exit()
 
     # Create objects
     api = CryptoAPI()
@@ -209,11 +194,11 @@ def main() -> None:
     print(f"[+] {len(keys)} keys validated")
 
     # Step 2: Check current data file
-    time = getTime()
+    time = getTime(fname)
     print("[+] Starting from ", time)
     
     # Step 3: Download and append new data
-    file = open("./data.csv", "a")
+    file = open(fname, "a")
     update = pytime.perf_counter()
     active = True
 
@@ -224,7 +209,7 @@ def main() -> None:
         k = getRandomKey(keys)
         try:
             # get data
-            data = api.GetData(k, time)
+            data = api.GetData(k, time, SYMBOL_ID, PERIOD_ID)
 
             # check data
             if not CheckData(data):
