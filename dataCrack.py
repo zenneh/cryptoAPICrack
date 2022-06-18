@@ -41,12 +41,12 @@ def validateKeys(api:CryptoAPI, keys:list, required:int=50) -> list:
 def getKeys(api, minkey:int) -> list:
     # get all the validated keys
     print("[+] Checking for valid keys")
-    validated = readKeys("valid-keys.txt")
+    validated = readKeys("./keys/valid-keys.txt")
     if(len(validated) >= minkey):
         return validated
     
     print("[+] Checking for non-valid keys")
-    nonvalid = readKeys("keys.txt")
+    nonvalid = readKeys("./keys/keys.txt")
     if((len(validated) + len(nonvalid)) >= minkey):
         print("[+] Validating non-valid keys")
         try:
@@ -164,6 +164,30 @@ def check_record(line:str, record:list) -> bool:
 def checkfilename(name):
     return name in os.listdir()
 
+def periodToMin(period:str):
+    if "MIN" in period:
+        return int(period.replace("MIN", ""))
+
+    if "HRS" in period:
+        return 60 * int(period.replace("HRS", ""))
+
+    if "DAY" in period:
+        return 24 * 60 * int(period.replace("DAY", ""))
+
+    if "MTH" in period:
+        return 30 * 24 * 60 * int(period.replace("MTH", ""))
+    raise Exception()
+
+def getEstimateTime(period:str, start:str):
+    buffer = 50
+    d1 = DateToInt(start)
+    d2 = datetime.now()
+    d3 = d2 - d1 # calc difference
+
+    # Calculate iterations
+    minutes = d3.total_seconds() / 60
+    size = periodToMin(period) * 10
+    return int(minutes / size) + buffer
 
 # Options
 MIN_KEYS = 50 # the minimum amount of keys needed to start the bot
@@ -175,7 +199,7 @@ PERIOD_ID = "5MIN"
 
 def main() -> None:
 
-    fname = f"{SYMBOL_ID}.csv"
+    fname = f"./data/{SYMBOL_ID}.csv"
     if checkfilename(fname):
         # verify old data
         if not VerifyData(fname):
@@ -188,11 +212,11 @@ def main() -> None:
     # Step 1: Get the keys
     try:
         keys = getKeys(api, MIN_KEYS)
+        print(f"[+] {len(keys)} keys validated")
     except Exception as e:
         print("[-] Not enough keys to start bot, pls run keygen.py to generate the keys")
+        exit()
     
-    print(f"[+] {len(keys)} keys validated")
-
     # Step 2: Check current data file
     time = getTime(fname)
     print("[+] Starting from ", time)
