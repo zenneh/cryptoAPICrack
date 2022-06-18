@@ -179,7 +179,7 @@ def periodToMin(period:str):
     raise Exception()
 
 def getEstimateTime(period:str, start:str):
-    buffer = 50
+    buffer = 0.05
     d1 = DateToInt(start)
     d2 = datetime.now()
     d3 = d2 - d1 # calc difference
@@ -187,7 +187,8 @@ def getEstimateTime(period:str, start:str):
     # Calculate iterations
     minutes = d3.total_seconds() / 60
     size = periodToMin(period) * 10
-    return int(minutes / size) + buffer
+    total = int(minutes / size)
+    return total + int(total * buffer)
 
 # Options
 MIN_KEYS = 50 # the minimum amount of keys needed to start the bot
@@ -228,7 +229,7 @@ def main() -> None:
 
     record_buffer = []
 
-    for i in tqdm(range(PERIOD), desc=f"[+] Downloading data"):
+    for i in tqdm(range(getEstimateTime(PERIOD_ID, time)), desc=f"[+] Downloading data"):
         update = Update(update, 10, f"Time: {time}")
         k = getRandomKey(keys)
         try:
