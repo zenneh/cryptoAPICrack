@@ -42,10 +42,8 @@ class CryptoAPI:
         r = requests.post("https://www.coinapi.io/www/freeplan", headers=self.header, data=json.dumps(data))
 
         # Check for valid request
-        data = json.loads(r.text)
-        if data["status"] != None:
-            if data["status"] == "OK":
-                return True
+        if r.reason == "OK":
+            return True
         
         print(r.text)
         return False
